@@ -134,18 +134,23 @@ def save_state(state):
 def send_qq_msg(message):
     api_url = f"http://{SERVER_IP}:{LANGBOT_PORT}/send_private_msg"
     payload = {"user_id": TARGET_QQ, "message": message}
-    headers = {
-        "Authorization": f"Bearer {NAPCAT_TOKEN}"
-    }
-    
+    # NapCat 未设置 access token 时不要带 Authorization 头，带上空 Bearer 会被拒
+    headers = {"Authorization": f"Bearer {NAPCAT_TOKEN}"} if NAPCAT_TOKEN else {}
+    stamp = datetime.now().strftime('%H:%M:%S')
+
     try:
         resp = requests.post(api_url, json=payload, headers=headers, timeout=5)
-        if resp.status_code == 200:
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] QQ 消息推送成功！")
+        try:
+            retcode = resp.json().get("retcode")
+        except ValueError:
+            retcode = None
+        # NapCat 发送失败同样返回 HTTP 200，只看状态码会误判成功
+        if resp.status_code == 200 and retcode == 0:
+            print(f"[{stamp}] QQ 消息推送成功！")
         else:
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] 推送失败，状态码: {resp.status_code}")
+            print(f"[{stamp}] 推送失败：HTTP {resp.status_code} retcode={retcode} {resp.text[:120]}")
     except Exception as e:
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] 推送网络异常: {e}")
+        print(f"[{stamp}] 推送网络异常: {e}")
 
 def check_updates(page):
     """
